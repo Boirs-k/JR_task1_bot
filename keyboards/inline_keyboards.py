@@ -1,41 +1,33 @@
-import os
+from collections import namedtuple
 
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from classes.resource import Button, Buttons
 from keyboards.callback_data import CelebrityData, QuizData
-from collections import namedtuple
 
-Button = namedtuple('button', ['button_text', 'button_callback'])
-
+QuizButton = namedtuple('Button', ['button_text', 'button_callback'])
 
 def ikb_celebrity():
     keyboard = InlineKeyboardBuilder()
-    path_celebrity = os.path.join('resources', 'prompts')
-    celebrity_list = [file for file in os.listdir(path_celebrity) if file.startswith('talk_')]
-
-    buttons = []
-    for file in celebrity_list:
-        with open(os.path.join('resources', 'prompts', file), 'r', encoding='UTF-8') as txt_file:
-            buttons.append((txt_file.read().split(', ')[0][5:], file.split('.')[0]))
-    for button_name, file_name in buttons:
+    buttons = Buttons()
+    for b in buttons:
         keyboard.button(
-            text=button_name,
+            text=b.name,
             callback_data=CelebrityData(
                 button='select_celebrity',
-                file_name=file_name,
+                file_name=b.callback,
             ),
         )
-
     keyboard.adjust(1)
     return keyboard.as_markup()
 
 
-def ikb_quiz():
+def ikb_select_topic():
     keyboard = InlineKeyboardBuilder()
     buttons = [
-        Button('Язык Python', 'quiz_prog'),
-        Button('Математика', 'quiz_math'),
-        Button('Биология', 'quiz_biology'),
+        QuizButton('Язык Python', 'quiz_prog'),
+        QuizButton('Математика', 'quiz_math'),
+        QuizButton('Биология', 'quiz_biology'),
     ]
     for b in buttons:
         keyboard.button(
@@ -43,8 +35,29 @@ def ikb_quiz():
             callback_data=QuizData(
                 button='select_topic',
                 topic=b.button_callback,
-                topic_name=b.button_text
+                topic_name=b.button_text,
             )
         )
     keyboard.adjust(1)
+    return keyboard.as_markup()
+
+
+def ikb_quiz_next(current_topic: QuizData):
+    keyboard = InlineKeyboardBuilder()
+    buttons = [
+        QuizButton('Дальше', 'next_question'),
+        QuizButton('Сменить тему', 'change_topic'),
+        QuizButton('Закончить', 'finish_quiz'),
+    ]
+
+    for b in buttons:
+        keyboard.button(
+            text=b.button_text,
+            callback_data=QuizData(
+                button=b.button_callback,
+                topic=current_topic.topic,
+                topic_name=current_topic.topic_name,
+            ),
+        )
+    keyboard.adjust(2, 1)
     return keyboard.as_markup()

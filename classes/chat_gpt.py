@@ -2,6 +2,34 @@ import os
 
 import openai
 
+from .enums import BotPath, GPTRole
+
+
+class GPTMessage:
+    def __init__(self, prompt: str):
+        self.prompt_file = prompt + '.txt'
+        self.message_list = self._init_message()
+
+    def _init_message(self) -> list[dict[str, str]]:
+        message = {
+            'role': GPTRole.SYSTEM.value,
+            'content': self._load_prompt()
+        }
+        return [message]
+
+    def _load_prompt(self) -> str:
+        prompt_path = os.path.join(BotPath.PROMPTS.value, self.prompt_file)
+        with open(prompt_path, 'r', encoding='UTF-8') as file:
+            prompt = file.read()
+        return prompt
+
+    def update(self, role: GPTRole, message: str):
+        message = {
+            'role': role.value,
+            'content': message,
+        }
+        self.message_list.append(message)
+
 
 class ChatGPT:
     _instance = None
@@ -11,52 +39,20 @@ class ChatGPT:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, model: str = 'gpt-3.5-turbo'):
         self.gpt_token = os.getenv('AI_TOKEN')
-        self._client = self.create_client()
+        self._client = self._create_client()
+        self._model = model
 
-    def create_client(self):
+    def _create_client(self):
         gpt_client = openai.AsyncOpenAI(api_key=self.gpt_token)
         return gpt_client
 
-    @staticmethod
-    def _load_prompt(prompt_name: str) -> str:
-        prompt_path = os.path.join('resources', 'prompts', f'{prompt_name}.txt')
-        with open(prompt_path, 'r', encoding='UTF-8') as file:
-            prompt = file.read()
-        return prompt
-
-    def init_message(self, prompt_name: str) -> dict[str, str | list[dict[str, str]]]:
-        return {
-            'messages': [
-                {
-                    'role': 'system',
-                    'content': self._load_prompt('random'),
-                },
-            ],
-            'model': 'gpt-3.5-turbo'
-        }
+    async def request(self, messages: GPTMessage) -> str:
+        response = await self._client.chat.completions.create(messages=messages.message_list, model=self._model)
+        return response.choices[0].message.content
 
     async def random_request(self) -> str:
         response = await self._client.chat.completions.create(**self.init_message('random'))
 
-        return response.choices[0].message.content
-
-    async def gpt_request(self, request_text: str) -> str:
-        key_args = self.init_message('gpt')
-        key_args['messages'].append(
-            {
-                'role': 'user',
-                'content': request_text,
-            }
-        )
-        response = await self._client.chat.completions.create(**key_args)
-
-        return response.choices[0].message.content
-
-    async def talk_request(self, messages: list[dict[str, str]]) -> str:
-        response = await self._client.chat.completions.create(
-            messages=messages,
-            model='gpt-3.5-turbo',
-        )
         return response.choices[0].message.content
